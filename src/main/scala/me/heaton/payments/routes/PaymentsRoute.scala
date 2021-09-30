@@ -1,11 +1,14 @@
 package me.heaton.payments.routes
 
+import cats.data.OptionT
 import cats.effect.IO
 import org.http4s.HttpRoutes
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.dsl.io._
 import io.circe.generic.auto._
 import me.heaton.payments.services.PaymentsService
+
+import java.util.UUID
 
 class PaymentsRoute(paymentsService: PaymentsService) {
 
@@ -16,6 +19,10 @@ class PaymentsRoute(paymentsService: PaymentsService) {
       payment <- paymentsService.save(request)
       resp <- Created(payment)
     } yield resp
+    case PUT -> Root / "payments" / paymentId => (for {
+      actionResult <- paymentsService.process(UUID.fromString(paymentId))
+      resp <- OptionT.liftF(Ok(actionResult))
+    } yield resp).getOrElseF(NotFound(s"payment $paymentId doesn't exist"))
   }
 
 }
