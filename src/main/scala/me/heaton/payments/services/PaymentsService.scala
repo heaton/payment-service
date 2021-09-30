@@ -21,9 +21,11 @@ class PaymentsService(accountRepository: AccountRepository, paymentEventReposito
   def save(paymentRequest: PaymentRequest): IO[Payment] =
     paymentEventRepository.save(Payment(UUID.randomUUID(), paymentRequest.date, paymentRequest.amount, "Pending", None))
 
-  def process(paymentId: UUID): OptionT[IO, ActionResult] = for {
+  def update(reason: Option[String])(paymentId: UUID): OptionT[IO, ActionResult] = for {
     payment <- OptionT(paymentEventRepository.findById(paymentId))
-    closedPayment <- OptionT.liftF(paymentEventRepository.save(payment.copy(status = "Closed", createdTime = Instant.now)))
+    closedPayment <- OptionT.liftF(paymentEventRepository.save(payment.copy(status = "Closed", reason = reason, createdTime = Instant.now)))
     account <- OptionT.liftF(accountRepository.findAccount)
   } yield ActionResult(account.balance, closedPayment.id, closedPayment.status, closedPayment.reason)
+
+  def process: UUID => OptionT[IO, ActionResult] = update(None)
 }

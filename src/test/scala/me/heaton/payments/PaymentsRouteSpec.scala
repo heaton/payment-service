@@ -3,7 +3,7 @@ package me.heaton.payments
 import io.circe.generic.auto._
 import me.heaton.payments.helpers.RepositoryHelper
 import me.heaton.payments.models.{ActionResult, Payment, Payments}
-import me.heaton.payments.routes.PaymentRequest
+import me.heaton.payments.routes.{CancelRequest, PaymentRequest}
 import me.heaton.scalatest.helpers.RouteSpecification
 import org.http4s.circe.CirceEntityDecoder._
 import org.scalatest.BeforeAndAfterEach
@@ -47,7 +47,7 @@ class PaymentsRouteSpec extends RouteSpecification with BeforeAndAfterEach with 
     }
 
     "process payment" should {
-      "return 1 pending payment if a payment created" in {
+      "close the pending payment" in {
         val paymentId = UUID.randomUUID()
         given data Payment(paymentId, today, 200, PENDING, None)
 
@@ -75,6 +75,40 @@ class PaymentsRouteSpec extends RouteSpecification with BeforeAndAfterEach with 
         payments put s"/payments/123" check {
           status shouldEqual NotFound
           body[String] shouldEqual s"payment 123 doesn't exist"
+        }
+      }
+    }
+
+    "cancel payment" should {
+      "cancel a pending payment without reason" in {
+        val paymentId = UUID.randomUUID()
+        given data Payment(paymentId, today, 200, PENDING, None)
+
+        payments patch s"/payments/$paymentId" check {
+          status shouldEqual Ok
+          body[ActionResult] shouldEqual ActionResult(1000, paymentId, CLOSED, None)
+
+          payments get "/payments" check {
+            status shouldEqual Ok
+            val payments = body[Payments]
+            payments shouldEqual Payments(1000, List(Payment(paymentId, today, 200, CLOSED, None, payments.data.head.createdTime)))
+          }
+        }
+      }
+
+      "cancel a pending payment with reason" in {
+        val paymentId = UUID.randomUUID()
+        given data Payment(paymentId, today, 200, PENDING, None)
+
+        payments patch s"/payments/$paymentId" withJson CancelRequest("a reason") check {
+          status shouldEqual Ok
+          body[ActionResult] shouldEqual ActionResult(1000, paymentId, CLOSED, Some("a reason"))
+
+          payments get "/payments" check {
+            status shouldEqual Ok
+            val payments = body[Payments]
+            payments shouldEqual Payments(1000, List(Payment(paymentId, today, 200, CLOSED, Some("a reason"), payments.data.head.createdTime)))
+          }
         }
       }
     }

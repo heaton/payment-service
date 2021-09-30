@@ -35,7 +35,7 @@ trait RouteSpecification extends Specification {
 
     def post(uri: String): RequestBuilder = new RequestBuilder(route, Request[IO](POST, Uri.unsafeFromString(uri)))
 
-    def delete(uri: String): RequestBuilder = new RequestBuilder(route, Request[IO](DELETE, Uri.unsafeFromString(uri)))
+    def patch(uri: String): RequestBuilder = new RequestBuilder(route, Request[IO](PATCH, Uri.unsafeFromString(uri)))
 
     def put(uri: String): RequestBuilder = new RequestBuilder(route, Request[IO](PUT, Uri.unsafeFromString(uri)))
   }
