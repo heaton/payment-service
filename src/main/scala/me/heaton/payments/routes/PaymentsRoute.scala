@@ -20,7 +20,8 @@ class PaymentsRoute(paymentsService: PaymentsService) {
       resp <- Created(payment)
     } yield resp
     case PUT -> Root / "payments" / paymentId => (for {
-      actionResult <- paymentsService.process(UUID.fromString(paymentId))
+      id <- OptionT(IO(UUID.fromString(paymentId)).attempt.map(_.toOption))
+      actionResult <- paymentsService.process(id)
       resp <- OptionT.liftF(Ok(actionResult))
     } yield resp).getOrElseF(NotFound(s"payment $paymentId doesn't exist"))
   }

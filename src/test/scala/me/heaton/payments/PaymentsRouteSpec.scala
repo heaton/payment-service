@@ -70,6 +70,13 @@ class PaymentsRouteSpec extends RouteSpecification with BeforeAndAfterEach with 
           body[String] shouldEqual s"payment $paymentId doesn't exist"
         }
       }
+
+      "return 404 if given payment id isn't in uuid format" in {
+        payments put s"/payments/123" check {
+          status shouldEqual NotFound
+          body[String] shouldEqual s"payment 123 doesn't exist"
+        }
+      }
     }
   }
 
