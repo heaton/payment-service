@@ -15,8 +15,8 @@ class PaymentEventRepository {
     payment
   }
 
-  def findById(paymentId: UUID): IO[Option[Payment]] = IO {
-    store.toList.find(_.id == paymentId)
+  def findById(paymentId: UUID): IO[List[Payment]] = IO {
+    store.toList.filter(_.id == paymentId)
   }
 
   def findAll: IO[List[Payment]] = IO(store.toList)

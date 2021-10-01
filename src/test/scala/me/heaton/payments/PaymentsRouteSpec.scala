@@ -74,6 +74,17 @@ class PaymentsRouteSpec extends RouteSpecification with BeforeAndAfterEach with 
         }
       }
 
+      "fail if the payment has been closed" in {
+        val paymentId = UUID.randomUUID()
+        given data Payment(paymentId, today, 200, PENDING, None)
+        given data Payment(paymentId, today, 200, CLOSED, None)
+
+        payments put s"/payments/$paymentId" check {
+          status shouldEqual BadRequest
+          body[String] shouldEqual s"payment $paymentId is Closed"
+        }
+      }
+
       "return 404 if no payment found" in {
         val paymentId = UUID.randomUUID()
         payments put s"/payments/$paymentId" check {

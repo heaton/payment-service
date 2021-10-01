@@ -1,8 +1,9 @@
 package me.heaton.payments.services
 
-import cats.data.OptionT
-import cats.data.OptionT.liftF
+import cats.data.EitherT
+import cats.data.EitherT.liftF
 import cats.effect.IO
+import me.heaton.payments.excpetions._
 import me.heaton.payments.models.{ActionResult, Payment, Payments}
 import me.heaton.payments.repositories.{AccountRepository, PaymentEventRepository}
 import me.heaton.payments.routes.PaymentRequest
@@ -22,11 +23,17 @@ class PaymentsService(accountRepository: AccountRepository, paymentEventReposito
   def save(paymentRequest: PaymentRequest): IO[Payment] =
     paymentEventRepository.save(Payment(UUID.randomUUID(), paymentRequest.date, paymentRequest.amount, "Pending", None))
 
-  def update(reason: Option[String])(paymentId: UUID): OptionT[IO, ActionResult] = for {
-    payment <- OptionT(paymentEventRepository.findById(paymentId))
+  def update(reason: Option[String])(paymentId: UUID): EitherT[IO, PaymentError, ActionResult] = for {
+    payment <- EitherT(paymentEventRepository.findById(paymentId).map(validate))
     closedPayment <- liftF(paymentEventRepository.save(payment.copy(status = "Closed", reason = reason, createdTime = Instant.now)))
     payments <- liftF(listPayments)
   } yield ActionResult(payments.balance, closedPayment.id, closedPayment.status, closedPayment.reason)
 
-  def process: UUID => OptionT[IO, ActionResult] = update(None)
+  def process: UUID => EitherT[IO, PaymentError, ActionResult] = update(None)
+
+  private def validate(paymentEvents: List[Payment]) = for {
+    _ <- Either.cond(paymentEvents.nonEmpty, Unit, PaymentNotFoundException)
+    _ <- Either.cond(!paymentEvents.exists(_.status == "Closed"), Unit, PaymentClosedException)
+  } yield paymentEvents.head
+
 }

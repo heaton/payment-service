@@ -1,13 +1,14 @@
 package me.heaton.payments.routes
 
-import cats.data.OptionT
+import cats.data.EitherT
 import cats.effect.IO
-import org.http4s.HttpRoutes
-import org.http4s.circe.CirceEntityCodec._
-import org.http4s.dsl.io._
 import io.circe.generic.auto._
+import me.heaton.payments.excpetions._
 import me.heaton.payments.models.ActionResult
 import me.heaton.payments.services.PaymentsService
+import org.http4s.circe.CirceEntityCodec._
+import org.http4s.dsl.io._
+import org.http4s.{HttpRoutes, Response}
 
 import java.util.UUID
 
@@ -27,9 +28,12 @@ class PaymentsRoute(paymentsService: PaymentsService) {
     } yield resp
   }
 
-  private def process(paymentId: String)(processor: UUID => OptionT[IO, ActionResult]) = (for {
-    id <- OptionT(IO(UUID.fromString(paymentId)).attempt.map(_.toOption))
+  private def process(paymentId: String)(processor: UUID => EitherT[IO, PaymentError, ActionResult]) = (for {
+    id <- EitherT(IO(UUID.fromString(paymentId)).attempt)
     actionResult <- processor(id)
-    resp <- OptionT.liftF(Ok(actionResult))
-  } yield resp).getOrElseF(NotFound(s"payment $paymentId doesn't exist"))
+    resp <- EitherT.liftF[IO, Throwable, Response[IO]](Ok(actionResult))
+  } yield resp).valueOrF {
+    case PaymentClosedException => BadRequest(s"payment $paymentId is Closed")
+    case _ => NotFound(s"payment $paymentId doesn't exist")
+  }
 }
