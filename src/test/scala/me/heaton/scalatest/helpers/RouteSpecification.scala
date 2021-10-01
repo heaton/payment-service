@@ -50,17 +50,14 @@ trait RouteSpecification extends Specification {
 
   def jsonBody[T: Decoder](implicit F: Functor[IO]): T = body[T]
 
+  def stringBody: String = response.attemptAs[String](EntityDecoder.text).rethrowT.unsafeRunSync()
+
   def contentType: Option[`Content-Type`] = response.contentType
 
   val Ok: Status = Status.Ok
   val Created: Status = Status.Created
-  val Accepted: Status = Status.Accepted
-  val Found: Status = Status.Found
   val BadRequest: Status = Status.BadRequest
   val NotFound: Status = Status.NotFound
-  val Unauthorized: Status = Status.Unauthorized
   val UnprocessableEntity: Status = Status.UnprocessableEntity
-  val InternalServerError: Status = Status.InternalServerError
-  val Conflict: Status = Status.Conflict
 
 }

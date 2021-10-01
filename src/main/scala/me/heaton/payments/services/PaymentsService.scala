@@ -20,8 +20,13 @@ class PaymentsService(accountRepository: AccountRepository, paymentEventReposito
     balance = account.balance - payments.filter(_.status == "Pending").map(_.amount).sum
   } yield Payments(balance, payments)
 
-  def save(paymentRequest: PaymentRequest): IO[Payment] =
-    paymentEventRepository.save(Payment(UUID.randomUUID(), paymentRequest.date, paymentRequest.amount, "Pending", None))
+  def create(paymentRequest: PaymentRequest): EitherT[IO, PaymentError, Payment] = for {
+    _ <- EitherT(listPayments.map(validateBalance(paymentRequest)))
+    payment <- liftF(paymentEventRepository.save(Payment(UUID.randomUUID(), paymentRequest.date, paymentRequest.amount, "Pending", None)))
+  } yield payment
+
+  private def validateBalance(request: PaymentRequest)(payments: Payments) =
+    Either.cond(payments.balance >= request.amount, Unit, InsufficientBalance)
 
   def update(reason: Option[String])(paymentId: UUID): EitherT[IO, PaymentError, ActionResult] = for {
     payment <- EitherT(paymentEventRepository.findById(paymentId).map(validate))

@@ -33,15 +33,35 @@ class PaymentsRouteSpec extends RouteSpecification with BeforeAndAfterEach with 
 
     "create payment" should {
       "return 1 pending payment if a payment created" in {
-        payments post "/payments" withJson PaymentRequest(200, today) check {
+        payments post "/payments" withJson PaymentRequest(200, today + 1) check {
           status shouldEqual Created
           val payment = body[Payment]
-          payment shouldEqual Payment(payment.id, today, 200, PENDING, None, payment.createdTime)
+          payment shouldEqual Payment(payment.id, today + 1, 200, PENDING, None, payment.createdTime)
 
           payments get "/payments" check {
             status shouldEqual Ok
             body[Payments] shouldEqual Payments(800, List(payment))
           }
+        }
+      }
+
+      "fail if the amount < 0" in {
+        payments post "/payments" withBody """{"amount": 0, "date": "2021-10-01"}""" check {
+          status shouldEqual BadRequest
+          stringBody shouldEqual "amount must be > 0"
+        }
+      }
+
+      "fail when balance is not sufficient" in {
+        payments post "/payments" withJson PaymentRequest(1001, today) check {
+          status shouldEqual BadRequest
+          stringBody shouldEqual "not enough balance"
+        }
+      }
+
+      "return 422 if payload is invalid" in {
+        payments post "/payments" withBody "{}" check {
+          status shouldEqual UnprocessableEntity
         }
       }
     }
@@ -81,7 +101,7 @@ class PaymentsRouteSpec extends RouteSpecification with BeforeAndAfterEach with 
 
         payments put s"/payments/$paymentId" check {
           status shouldEqual BadRequest
-          body[String] shouldEqual s"payment $paymentId is Closed"
+          stringBody shouldEqual s"payment $paymentId is Closed"
         }
       }
 
@@ -89,14 +109,14 @@ class PaymentsRouteSpec extends RouteSpecification with BeforeAndAfterEach with 
         val paymentId = UUID.randomUUID()
         payments put s"/payments/$paymentId" check {
           status shouldEqual NotFound
-          body[String] shouldEqual s"payment $paymentId doesn't exist"
+          stringBody shouldEqual s"payment $paymentId doesn't exist"
         }
       }
 
       "return 404 if given payment id isn't in uuid format" in {
         payments put s"/payments/123" check {
           status shouldEqual NotFound
-          body[String] shouldEqual s"payment 123 doesn't exist"
+          stringBody shouldEqual s"payment 123 doesn't exist"
         }
       }
     }
